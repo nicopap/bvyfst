@@ -24,4 +24,6 @@ impl AssetSaver for Saver {
     }
 }
 
-fn write_scene() {}
+fn write_scene(scene: Scene) {
+    todo!()
+}

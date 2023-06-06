@@ -102,12 +102,12 @@ impl<'a, 'b, 'c, R: AsyncRead + Unpin + Send> FastSceneProcessor<'a, 'b, 'c, R> 
         let meshes = self.load_meshes().await?;
         let images = self.load_images().await?;
         let materials = self.load_materials(&images);
-        let hierarchy = hierarchy::Run::new(self.scene.entities.as_ref());
+        let spawn = hierarchy::Spawn::new(self.scene.entities.as_ref());
 
         let mut scene_world = World::new();
 
         let root_entity = scene_world.spawn(SpatialBundle::default());
-        hierarchy.run(root_entity, &meshes, &materials);
+        spawn.as_children_of(root_entity, &meshes, &materials);
 
         Ok(Scene::new(scene_world))
     }

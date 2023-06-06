@@ -2,6 +2,7 @@
 use std::num::{NonZeroU16, NonZeroU32};
 
 use ::bevy::render::render_resource::Face;
+use ::bevy::utils::HashMap as BevyHashMap;
 use bevy::prelude as bevy;
 use rkyv::{Archive, Deserialize, Serialize};
 
@@ -192,24 +193,34 @@ impl ArchivedColor {
 }
 
 #[derive(Clone, Copy, Archive, Deserialize, Serialize)]
-pub struct MeshId(u32);
+pub struct MeshId(NonZeroU32);
 impl ArchivedMeshId {
     /// SAFETY: `handles` must be larger than value contained therein
     pub unsafe fn pick<'a, T>(&self, handles: &'a [T]) -> &'a T {
-        let index = usize::try_from(self.0).unwrap();
+        let index = usize::try_from(self.0.get() - 1).unwrap();
         // SAFETY: upheld by function invariant
         unsafe { handles.get_unchecked(index) }
     }
 }
+impl MeshId {
+    pub fn new(id: u32) -> Self {
+        MeshId(NonZeroU32::new(id.saturating_add(1)).unwrap())
+    }
+}
 
 #[derive(Clone, Copy, Archive, Deserialize, Serialize)]
-pub struct MaterialId(u32);
+pub struct MaterialId(NonZeroU32);
 impl ArchivedMaterialId {
     /// SAFETY: `handles` must be larger than value contained therein
     pub unsafe fn pick<'a, T>(&self, handles: &'a [T]) -> &'a T {
-        let index = usize::try_from(self.0).unwrap();
+        let index = usize::try_from(self.0.get() - 1).unwrap();
         // SAFETY: upheld by function invariant
         unsafe { handles.get_unchecked(index) }
+    }
+}
+impl MaterialId {
+    pub fn new(id: u32) -> Self {
+        MaterialId(NonZeroU32::new(id.saturating_add(1)).unwrap())
     }
 }
 
@@ -230,7 +241,7 @@ impl ImageId {
     }
 }
 
-#[derive(Clone, Copy, Archive, Deserialize, Serialize)]
+#[derive(Clone, Copy, Default, Archive, Deserialize, Serialize)]
 pub struct Transform {
     pub translation: [f32; 3],
     pub rotation: [f32; 4],
@@ -245,13 +256,23 @@ impl ArchivedTransform {
         }
     }
 }
+impl From<&'_ bevy::Transform> for Transform {
+    fn from(bevy: &'_ bevy::Transform) -> Self {
+        Transform {
+            translation: bevy.translation.into(),
+            rotation: bevy.rotation.into(),
+            scale: bevy.scale.into(),
+        }
+    }
+}
 
-#[derive(Clone, Copy, Archive, Deserialize, Serialize)]
+#[derive(Clone, Copy, Default, Archive, Deserialize, Serialize)]
 pub struct Entity {
-    pub mesh: MeshId,
-    pub material: MaterialId,
-    pub children: u32,
+    pub mesh: Option<MeshId>,
+    pub material: Option<MaterialId>,
     pub transform: Transform,
+    // How many entities following this one are its children.
+    pub children: u32,
 }
 
 #[derive(Clone, Copy, Archive, Deserialize, Serialize)]
@@ -349,4 +370,17 @@ pub struct Scene {
     pub version: u16,
     pub materials: Box<[Material]>,
     pub entities: Box<[Entity]>,
+}
+#[derive(Default)]
+pub struct Builder {
+    material_ids: BevyHashMap<bevy::Handle<bevy::StandardMaterial>, MaterialId>,
+    image_ids: BevyHashMap<bevy::Handle<bevy::Image>, ImageId>,
+    mesh_ids: BevyHashMap<bevy::Handle<bevy::Mesh>, MeshId>,
+    materials: Vec<Material>,
+    entities: Vec<Entity>,
+}
+impl Builder {
+    pub fn new() -> Self {
+        Builder::default()
+    }
 }

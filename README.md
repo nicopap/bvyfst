@@ -45,7 +45,8 @@ as invalid.
 Individual files in the archive cannot be larger than 8GB, meaning that none
 of the following can be true:
 
-- `scene_vx` is larger than 8GB (143M entities **OR** 125M materials **OR** 4G images)
+- `scene_vx` is larger than 8GB (154M entities **OR** 125M materials **OR** 4G images)
 - `images`, all images used in the scene (compressed), is larger than 8GB
 - `meshes`, all meshes used in the scene (compressed), is larger than 8GB.
-
+- If somehow several entities share the same children (this should be impossible),
+  they will be duplicated on load 
