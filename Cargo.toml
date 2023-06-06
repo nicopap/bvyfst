@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+ar = { version = "0.9", path = "../../gitimpo/rust-ar" }
 anyhow = "1"
 bevy = { version = "0.11.0-dev", path = "../../gitimpo/bevy", default-features = false, features = [
   "bevy_asset",
@@ -16,3 +17,5 @@ bitflags = "2.3"
 rkyv = "0.7.42"
 basis-universal = "0.3"
 tmf = { version = "0.1.1", path = "../../gitimpo/tmf" }
+thiserror = "1"
+futures-io = "0.3"

@@ -96,7 +96,7 @@ mod image_flags {
     }
 
     #[derive(Clone, Copy, Archive, Deserialize, Serialize)]
-    pub struct ImageFlags(u16);
+    pub struct ImageFlags(());
     impl ImageFlags {
         pub const fn mode_u(self) -> AddressMode {
             todo!()
@@ -180,7 +180,7 @@ pub use material_flags::MaterialFlags;
 #[derive(Clone, Copy, Archive, Deserialize, Serialize)]
 pub enum ParallaxMappingMethod {
     Occlusion,
-    Relief(NonZeroU16),
+    Relief { relief: NonZeroU16 },
 }
 #[derive(Clone, Copy, Archive, Deserialize, Serialize)]
 pub struct Color([u8; 4]);
@@ -231,10 +231,27 @@ impl ImageId {
 }
 
 #[derive(Clone, Copy, Archive, Deserialize, Serialize)]
+pub struct Transform {
+    pub translation: [f32; 3],
+    pub rotation: [f32; 4],
+    pub scale: [f32; 3],
+}
+impl ArchivedTransform {
+    pub fn to_bevy(&self) -> bevy::Transform {
+        bevy::Transform {
+            translation: self.translation.into(),
+            rotation: bevy::Quat::from_array(self.rotation),
+            scale: self.scale.into(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Archive, Deserialize, Serialize)]
 pub struct Entity {
     pub mesh: MeshId,
     pub material: MaterialId,
     pub children: u32,
+    pub transform: Transform,
 }
 
 #[derive(Clone, Copy, Archive, Deserialize, Serialize)]
@@ -290,7 +307,7 @@ impl ArchivedMaterial {
 
         match self.parallax_mapping_method {
             Arch::Occlusion => Occlusion,
-            Arch::Relief(value) => Relief { max_steps: value.get() as u32 },
+            Arch::Relief { relief } => Relief { max_steps: relief.get() as u32 },
         }
     }
     /// SAFETY: `images` must have the same size as the `images` field from the scene in which this
@@ -330,7 +347,6 @@ impl ArchivedMaterial {
 #[derive(Archive, Deserialize, Serialize)]
 pub struct Scene {
     pub version: u16,
-    pub images: Box<[Image]>,
     pub materials: Box<[Material]>,
     pub entities: Box<[Entity]>,
 }

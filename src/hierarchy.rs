@@ -11,7 +11,7 @@ pub struct Run<'a> {
     scene: &'a [Archived<fast::Entity>],
 }
 impl<'a> Run<'a> {
-    pub fn new(scene: &'a [Archived<fast::Entity>]) -> Self {
+    pub const fn new(scene: &'a [Archived<fast::Entity>]) -> Self {
         Run { scene }
     }
     fn extract_children(&mut self, at: u32) -> Self {
@@ -39,7 +39,7 @@ impl<'a> Run<'a> {
                 let bevy_entity = spawner.spawn((
                     unsafe { entity.mesh.pick(meshes) }.clone(),
                     unsafe { entity.material.pick(mats) }.clone(),
-                    SpatialBundle::default(),
+                    SpatialBundle::from_transform(entity.transform.to_bevy()),
                 ));
                 let children = entity.children;
                 let children = self.extract_children(children);
