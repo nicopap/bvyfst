@@ -120,14 +120,11 @@ impl<'a, 'b, 'c, R: AsyncRead + Unpin + Send> FastSceneProcessor<'a, 'b, 'c, R> 
             let got = err_string(entry.header());
             return Err(LoadError::WrongFile { expected: "images".to_string(), got });
         }
-        let load_image = |(i, image): (usize, Image)| {
-            let label = format!("image_{i}");
-
-            self.ctx.add_labeled_asset(label, image)
-        };
         let bytes = load_bytes(&mut entry).await?;
         let images = basis_universal_loader::load(&bytes)?;
 
+        let load_image =
+            |(i, image): (usize, Image)| self.ctx.add_labeled_asset(format!("image_{i}"), image);
         Ok(images.enumerate().map(load_image).collect())
     }
     fn load_materials(&mut self, images: &[Handle<Image>]) -> Box<[Handle<StandardMaterial>]> {

@@ -7,6 +7,9 @@ use bevy::{
 
 use crate::{fast, Archived};
 
+pub type Meshes<'a> = &'a [Handle<Mesh>];
+pub type Mats<'a> = &'a [Handle<StandardMaterial>];
+
 pub struct Run<'a> {
     scene: &'a [Archived<fast::Entity>],
 }
@@ -15,36 +18,26 @@ impl<'a> Run<'a> {
         Run { scene }
     }
     fn extract_children(&mut self, at: u32) -> Self {
-        let (start, scene) = self.scene.split_at(at as usize);
-        let end = Run { scene };
-
-        self.scene = start;
-        end
+        let scene;
+        (scene, self.scene) = self.scene.split_at(at as usize);
+        Run { scene }
     }
     fn next(&mut self) -> Option<&Archived<fast::Entity>> {
-        let (entity, scene) = self.scene.split_first()?;
-        self.scene = scene;
-
+        let entity;
+        (entity, self.scene) = self.scene.split_first()?;
         Some(entity)
     }
-    pub fn run(
-        mut self,
-        mut spawner: EntityMut,
-        meshes: &[Handle<Mesh>],
-        mats: &[Handle<StandardMaterial>],
-    ) {
-        spawner.with_children(|spawner| {
-            while !self.scene.is_empty() {
-                let Some(entity) = self.next() else { return; };
-                let bevy_entity = spawner.spawn((
-                    unsafe { entity.mesh.pick(meshes) }.clone(),
-                    unsafe { entity.material.pick(mats) }.clone(),
-                    SpatialBundle::from_transform(entity.transform.to_bevy()),
-                ));
-                let children = entity.children;
-                let children = self.extract_children(children);
-                children.run(bevy_entity, meshes, mats);
-            }
+    pub fn run(mut self, mut spawner: EntityMut, meshes: Meshes, mats: Mats) {
+        spawner.with_children(|spawner| loop {
+            let Some(entity) = self.next() else { return; };
+            let bevy_entity = spawner.spawn((
+                unsafe { entity.mesh.pick(meshes) }.clone(),
+                unsafe { entity.material.pick(mats) }.clone(),
+                SpatialBundle::from_transform(entity.transform.to_bevy()),
+            ));
+            let children = entity.children;
+            let children = self.extract_children(children);
+            children.run(bevy_entity, meshes, mats);
         });
     }
 }
