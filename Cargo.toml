@@ -1,5 +1,5 @@
 [package]
-name = "bevy_mod_fast_scene"
+name = "fast_bevy_scene"
 version = "0.1.0"
 edition = "2021"
 
