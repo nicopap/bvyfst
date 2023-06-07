@@ -242,31 +242,6 @@ impl ImageId {
 }
 
 #[derive(Clone, Copy, Default, Archive, Deserialize, Serialize)]
-pub struct Transform {
-    pub translation: [f32; 3],
-    pub rotation: [f32; 4],
-    pub scale: [f32; 3],
-}
-impl ArchivedTransform {
-    pub fn to_bevy(&self) -> bevy::Transform {
-        bevy::Transform {
-            translation: self.translation.into(),
-            rotation: bevy::Quat::from_array(self.rotation),
-            scale: self.scale.into(),
-        }
-    }
-}
-impl From<&'_ bevy::Transform> for Transform {
-    fn from(bevy: &'_ bevy::Transform) -> Self {
-        Transform {
-            translation: bevy.translation.into(),
-            rotation: bevy.rotation.into(),
-            scale: bevy.scale.into(),
-        }
-    }
-}
-
-#[derive(Clone, Copy, Default, Archive, Deserialize, Serialize)]
 pub struct Entity {
     pub mesh: Option<MeshId>,
     pub material: Option<MaterialId>,

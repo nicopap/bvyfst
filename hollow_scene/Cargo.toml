@@ -1,0 +1,29 @@
+[package]
+name = "bvyfst_hollow_scene"
+authors = ["Nicola Papale"]
+description = "A bevy plugin to load & save bevy scenes"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+keywords = ["bevy"]
+categories = ["game-development"]
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["bevy_plugin"]
+
+## Define the bevy plugin that you might use as a bevy game dev.
+bevy_plugin = []
+
+[dependencies]
+anyhow = "1"
+bitflags = "2.3"
+rkyv = "0.7.42"
+thiserror = "1"
+
+[dependencies.bevy]
+version = "0.11.0-dev"
+git = "https://github.com/cart/bevy.git"
+branch = "bevy_asset_v2"
+default-features = false
+features = [ "bevy_asset", "bevy_scene" ] 

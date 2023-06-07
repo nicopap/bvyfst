@@ -1,0 +1,33 @@
+[package]
+name = "bvyfst_mesh"
+authors = ["Nicola Papale"]
+description = "A bevy plugin to load & save meshes in the TMF format"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+keywords = ["bevy"]
+categories = ["game-development"]
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["bevy_plugin"]
+
+## Define the bevy plugin that you might use as a bevy game dev.
+bevy_plugin = []
+
+[dependencies]
+anyhow = "1"
+thiserror = "1"
+
+[dependencies.tmf]
+version = "0.1.1"
+git = "https://github.com/nicopap/tmf.git"
+branch = "proper-errors"
+default-features = false
+
+[dependencies.bevy]
+version = "0.11.0-dev"
+git = "https://github.com/cart/bevy.git"
+branch = "bevy_asset_v2"
+default-features = false
+features = [ "bevy_asset" ] 

@@ -1,0 +1,35 @@
+[package]
+name = "bvyfst_scene"
+authors = ["Nicola Papale"]
+description = "A bevy scene format with embedded assets, storing scene assets in the same file."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+keywords = ["bevy"]
+categories = ["game-development"]
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+basis-universal = "0.3"
+bitflags = "2.3"
+futures-io = "0.3"
+rkyv = "0.7.42"
+thiserror = "1"
+
+bvyfst_mesh = { path = "../mesh", default-features = false }
+bvyfst_hollow_scene = { path = "../hollow_scene", default-features = false }
+
+[dependencies.ayar]
+package = "proto_async_ar"
+version = "0.10"
+path = "../../../gitimpo/proto_async_ar"
+# git = "https://github.com/nicopap/ayar.git"
+# branch = "main"
+
+[dependencies.bevy]
+version = "0.11.0-dev"
+git = "https://github.com/cart/bevy.git"
+branch = "bevy_asset_v2"
+default-features = false
+features = [ "bevy_asset", "bevy_pbr", "bevy_scene" ] 

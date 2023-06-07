@@ -4,13 +4,8 @@
 mod basis_universal_loader;
 mod entry_ext;
 mod fast;
-mod hierarchy;
 mod loader;
-mod mesh_converter;
 mod saver;
-mod version;
-
-type Archived<T> = <T as rkyv::Archive>::Archived;
 
 use version::{Version, VERSION};
 
