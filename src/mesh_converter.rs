@@ -1,5 +1,5 @@
 use bevy::{prelude::Mesh as BMesh, render::render_resource::PrimitiveTopology};
-use tmf::{HandenesType, TMFMesh};
+use tmf::TMFMesh;
 
 pub trait Tmf2Bevy {
     fn into_bevy(self) -> BMesh;
@@ -75,12 +75,12 @@ impl From<Conv<Vec<(f32, f32, f32)>>> for Vec<[f32; 3]> {
         value.0.into_iter().map(|(x, y, z)| [x, y, z]).collect()
     }
 }
-impl From<Conv<Vec<((f32, f32, f32), HandenesType)>>> for Vec<[f32; 4]> {
-    fn from(value: Conv<Vec<((f32, f32, f32), HandenesType)>>) -> Self {
+impl From<Conv<Vec<((f32, f32, f32), f32)>>> for Vec<[f32; 4]> {
+    fn from(value: Conv<Vec<((f32, f32, f32), f32)>>) -> Self {
         value
             .0
             .into_iter()
-            .map(|((x, y, z), w)| [x, y, z, w.into()])
+            .map(|((x, y, z), w)| [x, y, z, w])
             .collect()
     }
 }
@@ -97,10 +97,10 @@ impl Conv<Vec<[f32; 3]>> {
     }
 }
 impl Conv<Vec<[f32; 4]>> {
-    fn into(self) -> Vec<((f32, f32, f32), HandenesType)> {
+    fn into(self) -> Vec<((f32, f32, f32), f32)> {
         self.0
             .into_iter()
-            .map(|[x, y, z, w]| ((x, y, z), w.into()))
+            .map(|[x, y, z, w]| ((x, y, z), w))
             .collect()
     }
 }

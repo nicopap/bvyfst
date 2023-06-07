@@ -146,34 +146,32 @@ impl InitEntity {
         // SAFETY: we literally just initialized this (entity.write)
         let head = &mut unsafe { entity.assume_init_mut() }.children;
 
-        let iter = self.iter_children(children, query, world);
-
-        *head += iter
+        *head += IterChildren::new(children, query, world)
             .map(|item| self.child(item, query, uninit, world))
             .sum::<u32>();
 
         *head
     }
-
-    fn iter_children<'chld, 'q, 'w>(
-        &self,
+}
+struct IterChildren<'chld, 'q, 'w> {
+    entities: &'chld [bevy::Entity],
+    query: &'q QueryState<BuildQuery>,
+    world: &'w bevy::World,
+}
+impl<'chld, 'q, 'w> IterChildren<'chld, 'q, 'w> {
+    fn new(
         children: Option<&'chld bevy::Children>,
         query: &'q QueryState<BuildQuery>,
         world: &'w bevy::World,
-    ) -> IterChildren<'chld, 'q, 'w> {
+    ) -> Self {
         IterChildren {
-            entities: children.map_or(&[], |c| &*c),
+            entities: children.map_or(&[], |c| c),
             query,
             world,
         }
     }
 }
-struct IterChildren<'a, 'b, 'w> {
-    entities: &'a [bevy::Entity],
-    query: &'b QueryState<BuildQuery>,
-    world: &'w bevy::World,
-}
-impl<'a, 'b, 'w> Iterator for IterChildren<'a, 'b, 'w> {
+impl<'chld, 'q, 'w> Iterator for IterChildren<'chld, 'q, 'w> {
     type Item = QueryItem<'w, BuildQuery>;
 
     fn next(&mut self) -> Option<Self::Item> {

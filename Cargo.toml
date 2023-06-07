@@ -6,16 +6,29 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ar = { version = "0.9", path = "../../gitimpo/rust-ar" }
 anyhow = "1"
-bevy = { version = "0.11.0-dev", path = "../../gitimpo/bevy", default-features = false, features = [
-  "bevy_asset",
-  "bevy_pbr",
-  "bevy_scene",
-] }
 bitflags = "2.3"
 rkyv = "0.7.42"
 basis-universal = "0.3"
-tmf = { version = "0.1.1", path = "../../gitimpo/tmf" }
 thiserror = "1"
 futures-io = "0.3"
+
+[dependencies.ayar]
+package = "proto_async_ar"
+version = "0.10"
+path = "../../gitimpo/proto_async_ar"
+# git = "https://github.com/nicopap/ayar.git"
+# branch = "main"
+
+[dependencies.tmf]
+version = "0.1.1"
+git = "https://github.com/nicopap/tmf.git"
+branch = "proper-errors"
+default-features = false
+
+[dependencies.bevy]
+version = "0.11.0-dev"
+git = "https://github.com/cart/bevy.git"
+branch = "bevy_asset_v2"
+default-features = false
+features = [ "bevy_asset", "bevy_pbr", "bevy_scene" ] 

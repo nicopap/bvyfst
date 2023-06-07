@@ -1,4 +1,4 @@
-//! Extension methods for the [`ar::Entry<R>`] type.
+//! Extension methods for the [`ayar::Entry<R>`] type.
 
 use bevy::asset::AsyncReadExt;
 use futures_io::AsyncRead;
@@ -12,7 +12,7 @@ pub enum Error {
     Io { file: String, err: std::io::Error },
 }
 pub async fn load_bytes<R: AsyncRead + Unpin>(
-    entry: &mut ar::Entry<'_, R>,
+    entry: &mut ayar::Entry<'_, R>,
 ) -> Result<Box<[u8]>, Error> {
     let len = entry.header().size() as usize;
 

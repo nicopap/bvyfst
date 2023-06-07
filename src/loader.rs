@@ -1,7 +1,7 @@
 use std::io::Cursor;
 
 use anyhow::Result as AnyResult;
-use ar::Archive;
+use ayar::Archive;
 use bevy::{
     asset::{io::Reader, AssetLoader, LoadContext},
     prelude::{Handle, Image, Mesh, Scene, SpatialBundle, StandardMaterial, World},
@@ -55,7 +55,7 @@ impl ValidatedSceneBytes {
         unsafe { archived_root::<fast::Scene>(&self.0) }
     }
     async fn new(
-        mut entry: ar::Entry<'_, impl AsyncRead + Unpin + Send>,
+        mut entry: ayar::Entry<'_, impl AsyncRead + Unpin + Send>,
     ) -> Result<ValidatedSceneBytes, LoadError> {
         let name = entry.header().identifier();
         if !name.starts_with(b"scene_v") {

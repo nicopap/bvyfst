@@ -1,4 +1,4 @@
-#![warn(clippy::nursery, clippy::pedantic)]
+#![warn(clippy::pedantic)]
 #![allow(clippy::use_self)]
 
 mod basis_universal_loader;
@@ -14,6 +14,6 @@ type Archived<T> = <T as rkyv::Archive>::Archived;
 
 use version::{Version, VERSION};
 
-fn err_string(header: &ar::Header) -> String {
+fn err_string(header: &ayar::Header) -> String {
     String::from_utf8_lossy(header.identifier()).into_owned()
 }
