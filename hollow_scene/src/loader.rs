@@ -30,17 +30,17 @@ impl<Ks: Keys + 'static, Ts: Tables<Ks> + 'static> AssetLoader for Loader<Ks, Ts
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
-            let entities = unsafe { rkyv::archived_root::<FastScene<Ks, Ts>>(&bytes) };
+            let fast_scene = unsafe { rkyv::archived_root::<FastScene<Ks, Ts>>(&bytes) };
             let mut world = World::new();
 
             let root_entity = world.spawn_empty();
-            let spawn = Spawn::new(&entities.entities, &entities.tables);
+            let spawn = Spawn::new(&fast_scene.entities, &fast_scene.tables);
             spawn.children_of(root_entity);
 
             Ok(Scene::new(world))
         })
     }
     fn extensions(&self) -> &[&str] {
-        &["bvyfst"]
+        &["hollowbvyfst"]
     }
 }
