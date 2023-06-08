@@ -1,18 +1,14 @@
-pub mod storage;
-
 use bevy::prelude as bevy;
 use rkyv::{Archive, Deserialize, Serialize};
 
-pub use storage::ref_table::{KeyStorage, Keys, TableStorage, Tables};
+mod storage;
 
-mod sealed {
-    pub trait Storage {}
-}
-pub trait Storage: sealed::Storage {}
+pub use storage::{
+    inline::{Inline, InlineStorage},
+    ref_table::{KeyStorage, Keys, TableStorage, Tables},
+};
 
 pub trait ArchiveProxy: Archive + for<'a> From<&'a Self::Target> {
-    type StorageType: Storage;
-
     type Target: bevy::Component + for<'a> From<&'a Self::Archived>;
 }
 
@@ -42,15 +38,17 @@ impl From<&'_ bevy::Transform> for Transform {
 }
 
 #[derive(Clone, Copy, Archive, Deserialize, Serialize)]
-pub struct Entity<Ks> {
+pub struct Entity<Keys, Inlines> {
     // How many entities following this one are its children.
     pub children: u32,
-    pub ref_table_keys: KeyStorage<Ks>,
+    pub inline_items: InlineStorage<Inlines>,
+    pub ref_table_keys: KeyStorage<Keys>,
 }
-impl<Ks: Keys> Entity<Ks> {
+impl<Ks: Keys, Is: Inline> Entity<Ks, Is> {
     pub fn empty() -> Self {
         Entity {
             children: 0,
+            inline_items: InlineStorage::default(),
             ref_table_keys: KeyStorage::no_component(),
         }
     }

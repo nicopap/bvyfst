@@ -1,37 +1,17 @@
+//! The value is stored in the `Scene`, as an array.
+//! The index is stored in the `Entity` as a `Option<NonZeroU32>`.
+//! Use this if the archived format occupies a lot of memory (something like
+//! several thousand bits or more), or if the same value is shared by many
+//! different entites.
+
 use std::{marker::PhantomData, num::NonZeroU32};
 
-use bevy::{
-    ecs::{
-        query::{ROQueryItem, WorldQuery},
-        system::EntityCommands,
-        world::EntityMut,
-    },
-    prelude::Bundle,
-};
+use bevy::ecs::query::{ROQueryItem, WorldQuery};
 use rkyv::{Archive, Deserialize, Serialize};
 
-use super::ArchiveProxy;
+use super::{ArchiveProxy, EntitySpawner};
 
 type Archived<T> = <T as Archive>::Archived;
-
-// -------------------------------------
-//              SPAWNER
-// -------------------------------------
-
-/// Enables spawning entites from tables with `EntityCommands` and `EntityMut`
-pub trait EntitySpawner {
-    fn insert<B: Bundle>(&mut self, bundle: B);
-}
-impl EntitySpawner for &'_ mut EntityCommands<'_, '_, '_> {
-    fn insert<B: Bundle>(&mut self, bundle: B) {
-        EntityCommands::insert(self, bundle);
-    }
-}
-impl EntitySpawner for &'_ mut EntityMut<'_> {
-    fn insert<B: Bundle>(&mut self, bundle: B) {
-        EntityMut::insert(self, bundle);
-    }
-}
 
 // -------------------------------------
 //               TABLES
@@ -73,9 +53,9 @@ impl<C: ArchiveProxy> ArchivedTable<C> {
 }
 impl Tables for () {
     type Keys = ();
-    fn insert_archived_keys<S: EntitySpawner>(_: &(), _: &(), _: S) {}
+    fn insert_archived_keys<S: EntitySpawner>(&(): &(), &(): &(), _: S) {}
     fn new() {}
-    fn insert_entity_components(&mut self, _: ()) {}
+    fn insert_entity_components(&mut self, (): ()) {}
 }
 impl<Hk: ArchiveProxy, Tk: Keys, Tt: Tables<Keys = Tk>> Tables for (Table<Hk>, Tt) {
     type Keys = (Key<Hk>, Tk);

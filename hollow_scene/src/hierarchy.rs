@@ -3,22 +3,22 @@
 use std::iter;
 use std::marker::PhantomData;
 
-use ::bevy::ecs::query::ROQueryItem;
+use ::bevy::ecs::query::{ROQueryItem, WorldQuery};
 use ::bevy::ecs::world::EntityMut;
 use ::bevy::prelude::{BuildWorldChildren, QueryState};
 use bevy::prelude as bevy;
 
-use crate::entity::{KeyStorage, Keys, TableStorage, Tables};
+use crate::entity::{Inline, InlineStorage, KeyStorage, Keys, TableStorage, Tables};
 use crate::{entity::Entity, Archived};
 
-pub struct Spawn<'ett, 'b: 'ett + 't, 't, Ts: Tables + 'b> {
-    scene: &'ett [Archived<Entity<Ts::Keys>>],
+pub struct Spawn<'ett, 'b: 'ett + 't, 't, Ts: Tables + 'b, Is: Inline + 'b> {
+    scene: &'ett [Archived<Entity<Ts::Keys, Is>>],
     tables: &'t Archived<TableStorage<Ts>>,
     _b: PhantomData<&'b ()>,
 }
-impl<'ett, 'b: 'ett, 't, Ts: Tables> Spawn<'ett, 'b, 't, Ts> {
+impl<'ett, 'b: 'ett, 't, Ts: Tables, Is: Inline> Spawn<'ett, 'b, 't, Ts, Is> {
     pub const fn new(
-        scene: &'ett [Archived<Entity<Ts::Keys>>],
+        scene: &'ett [Archived<Entity<Ts::Keys, Is>>],
         tables: &'t Archived<TableStorage<Ts>>,
     ) -> Self {
         Spawn { scene, _b: PhantomData, tables }
@@ -35,7 +35,7 @@ impl<'ett, 'b: 'ett, 't, Ts: Tables> Spawn<'ett, 'b, 't, Ts> {
         self.scene = scene;
         Spawn { scene: childr, ..*self }
     }
-    fn next(&mut self) -> Option<&'ett Archived<Entity<Ts::Keys>>> {
+    fn next(&mut self) -> Option<&'ett Archived<Entity<Ts::Keys, Is>>> {
         let (entity, scene) = self.scene.split_first()?;
         self.scene = scene;
         Some(entity)
@@ -56,14 +56,19 @@ impl<'ett, 'b: 'ett, 't, Ts: Tables> Spawn<'ett, 'b, 't, Ts> {
         });
     }
 }
-type BuildQuery<Ks> = (Option<&'static bevy::Children>, <Ks as Keys>::Query);
+type BuildQuery<Ks, Is> = (
+    Option<&'static bevy::Children>,
+    <Ks as Keys>::Query,
+    <Is as Inline>::Query,
+);
 
-pub fn build<Ts: Tables>(
+pub fn build<Ts: Tables, Is: Inline>(
     world: &mut bevy::World,
     tables: &mut TableStorage<Ts>,
-) -> Box<[Entity<Ts::Keys>]> {
-    let root_query = world.query_filtered::<BuildQuery<Ts::Keys>, bevy::Without<bevy::Parent>>();
-    let child_query = world.query::<BuildQuery<Ts::Keys>>();
+) -> Box<[Entity<Ts::Keys, Is>]> {
+    let root_query =
+        world.query_filtered::<BuildQuery<Ts::Keys, Is>, bevy::Without<bevy::Parent>>();
+    let child_query = world.query::<BuildQuery<Ts::Keys, Is>>();
 
     let entity_count = child_query.iter_manual(world).len();
     let mut entities: Box<[_]> = iter::repeat_with(Entity::empty)
@@ -75,6 +80,7 @@ pub fn build<Ts: Tables>(
 
     *entity = Entity {
         children: entity_count as u32,
+        inline_items: InlineStorage::default(),
         ref_table_keys: KeyStorage::no_component(),
     };
     let root_query = root_query.iter_manual(world);
@@ -88,10 +94,10 @@ pub fn build<Ts: Tables>(
     entities
 }
 // TODO(clean) there is too many arguments to this function
-fn child<Ts: Tables>(
-    (children, components): ROQueryItem<BuildQuery<Ts::Keys>>,
-    query: &QueryState<BuildQuery<Ts::Keys>>,
-    uninit: &mut [Entity<Ts::Keys>],
+fn child<Ts: Tables, Is: Inline>(
+    (children, table_query, inline_query): ROQueryItem<BuildQuery<Ts::Keys, Is>>,
+    query: &QueryState<BuildQuery<Ts::Keys, Is>>,
+    uninit: &mut [Entity<Ts::Keys, Is>],
     tables: &mut TableStorage<Ts>,
     world: &bevy::World,
 ) -> u32 {
@@ -102,23 +108,24 @@ fn child<Ts: Tables>(
 
     *entity = Entity {
         children: child_count as u32,
-        ref_table_keys: tables.insert_values(components),
+        inline_items: InlineStorage::query(inline_query),
+        ref_table_keys: tables.insert_values(table_query),
     };
-    entity.children += IterChildren::<Ts::Keys>::new(children, query, world)
+    entity.children += IterChildren::new(children, query, world)
         .map(|item| child(item, query, uninit, tables, world))
         .sum::<u32>();
 
     entity.children
 }
-struct IterChildren<'chld, 'q, 'w, Ks: Keys> {
+struct IterChildren<'chld, 'q, 'w, Q: WorldQuery> {
     entities: &'chld [bevy::Entity],
-    query: &'q QueryState<BuildQuery<Ks>>,
+    query: &'q QueryState<Q>,
     world: &'w bevy::World,
 }
-impl<'chld, 'q, 'w, Ks: Keys> IterChildren<'chld, 'q, 'w, Ks> {
+impl<'chld, 'q, 'w, Q: WorldQuery> IterChildren<'chld, 'q, 'w, Q> {
     fn new(
         children: Option<&'chld bevy::Children>,
-        query: &'q QueryState<BuildQuery<Ks>>,
+        query: &'q QueryState<Q>,
         world: &'w bevy::World,
     ) -> Self {
         IterChildren {
@@ -128,8 +135,8 @@ impl<'chld, 'q, 'w, Ks: Keys> IterChildren<'chld, 'q, 'w, Ks> {
         }
     }
 }
-impl<'chld, 'q, 'w, Ks: Keys> Iterator for IterChildren<'chld, 'q, 'w, Ks> {
-    type Item = ROQueryItem<'w, BuildQuery<Ks>>;
+impl<'chld, 'q, 'w, Q: WorldQuery> Iterator for IterChildren<'chld, 'q, 'w, Q> {
+    type Item = ROQueryItem<'w, Q>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let (entity, tail) = self.entities.split_first()?;
