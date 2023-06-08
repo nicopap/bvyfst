@@ -8,12 +8,27 @@ The `Handle<A>` components are stored as file paths.
 
 bvyfst_hollow_scene is a bevy scene representation especially designed load fast.
 
+## How to use
+
+1. Define `ArchiveProxy` implementations for the `Component`s you are interested
+   in serializing. You might need to derive the `rkyv` traits yourself.
+   \
+   Alternatively, use the `proxy::Id` newtype if the `Component` already
+   implements `Clone`, `rkyv::Archive`, `rkyv::Serialize`, `rkyv::Deserialize`
+2. Add the plugin to your app using the `Plugin!` macro. See doc.
+3. use the `DefaultPlugins.set(AssetPlugin::processed_dev())` to automatically
+   convert existing scenes into `.hollow_bvyfst` (well, currently not, because
+   of a limitation of bevy asset v2)
+
+See the [example] at `./examples/basic_scene.rs`.
+
 ## Difference with `bvyfst_scene`
 
 Unlike `bvyfst_hollow_scene`, `bvyfst_scene` stores assets within the scene file.
 
 `bvyfst_hollow_scene` only stores file name of assets.
 
+[example]: ./examples/basic_scene.rs
 [Holocene]: https://en.wikipedia.org/wiki/Holocene
 [`rkyv`]: https://lib.rs/crates/rkyv
 
@@ -31,11 +46,11 @@ From my understanding, the current bevy asset processing implementation requires
 a unified loader (loads N formats)
 
 ```
-  png
-  bmp
-  jpeg   --> ImageLoader --> Image --> ImageSaver ->-
-->basis                                             |
-| ktx2                                              |
+  png  \
+  bmp   |
+  jpeg  |--> ImageLoader --> Image --> ImageSaver ->-
+->basis |                                           |
+| ktx2 /                                            |
 |                                                   |
 -----------------------------------------------------
 ```
