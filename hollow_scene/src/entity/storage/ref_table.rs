@@ -1,23 +1,22 @@
-//! The value is stored in the `Scene`, as an array.
-//! The index is stored in the `Entity` as a `Option<NonZeroU32>`.
-//! Use this if the archived format occupies a lot of memory (something like
-//! several thousand bits or more), or if the same value is shared by many
-//! different entites.
-
-use std::{marker::PhantomData, num::NonZeroU32};
+use std::{marker::PhantomData, num::NonZeroU16};
 
 use bevy::ecs::query::{ROQueryItem, WorldQuery};
-use rkyv::{Archive, Deserialize, Serialize};
+use rkyv::{Archive, Archived, Deserialize, Serialize};
 
 use super::{ArchiveProxy, EntitySpawner};
-
-type Archived<T> = <T as Archive>::Archived;
+use crate::{ArchivedTable, Table};
 
 // -------------------------------------
 //               TABLES
 // -------------------------------------
 
 /// A collection of values referenced by [`Keys`] representing bevy components.
+///
+/// The value is stored in the `Scene`, as an array.
+/// The index is stored in the `Entity` as a `Option<NonZeroU16>`.
+/// Use this if the archived format occupies a lot of memory (something like
+/// several thousand bits or more), or if the same value is shared by many
+/// different entites.
 pub trait Tables: Archive {
     type Keys: Keys;
 
@@ -31,13 +30,9 @@ pub trait Tables: Archive {
     fn insert_entity_components(&mut self, components: ComponentsOf<Self::Keys>) -> Self::Keys;
 }
 
-#[derive(Archive, Deserialize, Serialize)]
-struct Table<C> {
-    table: Vec<C>,
-}
 impl<C: ArchiveProxy> Table<C> {
     fn store(&mut self, c: &C::Target) -> usize {
-        self.table.push(C::from(c));
+        self.table.push(C::from_target(c));
         self.table.len()
     }
 }
@@ -47,7 +42,7 @@ impl<C: ArchiveProxy> ArchivedTable<C> {
             let index = usize::try_from(index.get() - 1).unwrap();
             // SAFETY: by construction, all keys are compatible with tables of given type.
             let component = unsafe { self.table.get_unchecked(index) };
-            cmds.insert(C::Target::from(component));
+            cmds.insert(C::to_target(component));
         }
     }
 }
@@ -116,14 +111,14 @@ pub trait Keys: Archive {
 }
 
 #[derive(Clone, Copy, Archive, Deserialize, Serialize)]
-struct Key<C: ArchiveProxy> {
-    index: Option<NonZeroU32>,
+pub struct Key<C: ArchiveProxy> {
+    index: Option<NonZeroU16>,
     _value_ty: PhantomData<fn(C)>,
 }
 impl<C: ArchiveProxy> Key<C> {
     fn from_index(index: Option<usize>) -> Self {
         Key {
-            index: index.map(|i| NonZeroU32::new(u32::try_from(i).unwrap()).unwrap()),
+            index: index.map(|i| NonZeroU16::new(u16::try_from(i).unwrap()).unwrap()),
             _value_ty: PhantomData,
         }
     }

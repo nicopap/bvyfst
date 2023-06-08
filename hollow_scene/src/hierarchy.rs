@@ -7,16 +7,16 @@ use ::bevy::ecs::query::{ROQueryItem, WorldQuery};
 use ::bevy::ecs::world::EntityMut;
 use ::bevy::prelude::{BuildWorldChildren, QueryState};
 use bevy::prelude as bevy;
+use rkyv::Archived;
 
-use crate::entity::{Inline, InlineStorage, KeyStorage, Keys, TableStorage, Tables};
-use crate::{entity::Entity, Archived};
+use crate::entity::{Entity, InlineStorage, Inlines, KeyStorage, Keys, TableStorage, Tables};
 
-pub struct Spawn<'ett, 'b: 'ett + 't, 't, Ts: Tables + 'b, Is: Inline + 'b> {
+pub struct Spawn<'ett, 'b: 'ett + 't, 't, Ts: Tables + 'b, Is: Inlines + 'b> {
     scene: &'ett [Archived<Entity<Ts::Keys, Is>>],
     tables: &'t Archived<TableStorage<Ts>>,
     _b: PhantomData<&'b ()>,
 }
-impl<'ett, 'b: 'ett, 't, Ts: Tables, Is: Inline> Spawn<'ett, 'b, 't, Ts, Is> {
+impl<'ett, 'b: 'ett, 't, Ts: Tables, Is: Inlines> Spawn<'ett, 'b, 't, Ts, Is> {
     pub const fn new(
         scene: &'ett [Archived<Entity<Ts::Keys, Is>>],
         tables: &'t Archived<TableStorage<Ts>>,
@@ -59,10 +59,10 @@ impl<'ett, 'b: 'ett, 't, Ts: Tables, Is: Inline> Spawn<'ett, 'b, 't, Ts, Is> {
 type BuildQuery<Ks, Is> = (
     Option<&'static bevy::Children>,
     <Ks as Keys>::Query,
-    <Is as Inline>::Query,
+    <Is as Inlines>::Query,
 );
 
-pub fn build<Ts: Tables, Is: Inline>(
+pub fn build<Ts: Tables, Is: Inlines>(
     world: &mut bevy::World,
     tables: &mut TableStorage<Ts>,
 ) -> Box<[Entity<Ts::Keys, Is>]> {
@@ -94,7 +94,7 @@ pub fn build<Ts: Tables, Is: Inline>(
     entities
 }
 // TODO(clean) there is too many arguments to this function
-fn child<Ts: Tables, Is: Inline>(
+fn child<Ts: Tables, Is: Inlines>(
     (children, table_query, inline_query): ROQueryItem<BuildQuery<Ts::Keys, Is>>,
     query: &QueryState<BuildQuery<Ts::Keys, Is>>,
     uninit: &mut [Entity<Ts::Keys, Is>],
@@ -142,6 +142,6 @@ impl<'chld, 'q, 'w, Q: WorldQuery> Iterator for IterChildren<'chld, 'q, 'w, Q> {
         let (entity, tail) = self.entities.split_first()?;
         self.entities = tail;
 
-        Some(self.query.get_manual(&self.world, *entity).unwrap())
+        Some(self.query.get_manual(self.world, *entity).unwrap())
     }
 }

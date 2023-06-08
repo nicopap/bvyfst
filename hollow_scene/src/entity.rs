@@ -1,40 +1,21 @@
 use bevy::prelude as bevy;
 use rkyv::{Archive, Deserialize, Serialize};
 
-mod storage;
+pub mod storage;
 
 pub use storage::{
-    inline::{Inline, InlineStorage},
+    inline::{InlineStorage, Inlines},
     ref_table::{KeyStorage, Keys, TableStorage, Tables},
 };
 
-pub trait ArchiveProxy: Archive + for<'a> From<&'a Self::Target> {
-    type Target: bevy::Component + for<'a> From<&'a Self::Archived>;
-}
+pub trait ArchiveProxy: Archive {
+    // TODO: consider using bevy::Bundle for `N components -> 1 proxy` relations
+    // this might be useful for components of size smaller than 1 byte, we could
+    // put them together to avoid memory bloat.
+    type Target: bevy::Component;
 
-#[derive(Clone, Copy, Default, Archive, Deserialize, Serialize)]
-pub struct Transform {
-    pub translation: [f32; 3],
-    pub rotation: [f32; 4],
-    pub scale: [f32; 3],
-}
-impl ArchivedTransform {
-    pub fn to_bevy(&self) -> bevy::Transform {
-        bevy::Transform {
-            translation: self.translation.into(),
-            rotation: bevy::Quat::from_array(self.rotation),
-            scale: self.scale.into(),
-        }
-    }
-}
-impl From<&'_ bevy::Transform> for Transform {
-    fn from(bevy: &'_ bevy::Transform) -> Self {
-        Transform {
-            translation: bevy.translation.into(),
-            rotation: bevy.rotation.into(),
-            scale: bevy.scale.into(),
-        }
-    }
+    fn to_target(archive: &Self::Archived) -> Self::Target;
+    fn from_target(target: &Self::Target) -> Self;
 }
 
 #[derive(Clone, Copy, Archive, Deserialize, Serialize)]
@@ -44,7 +25,7 @@ pub struct Entity<Keys, Inlines> {
     pub inline_items: InlineStorage<Inlines>,
     pub ref_table_keys: KeyStorage<Keys>,
 }
-impl<Ks: Keys, Is: Inline> Entity<Ks, Is> {
+impl<Ks: Keys, Is: Inlines> Entity<Ks, Is> {
     pub fn empty() -> Self {
         Entity {
             children: 0,

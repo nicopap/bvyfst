@@ -1,0 +1,37 @@
+(
+  resources: {},
+  entities: {
+    0: (
+      components: {
+        "basic_scene::ComponentB": (
+          value: "hello",
+        ),
+        "basic_scene::ComponentA": (
+          x: 1.0,
+          y: 2.0,
+        ),
+        "bevy_transform::components::transform::Transform": (
+          translation: (
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+          ),
+          rotation: (0.0, 0.0, 0.0, 1.0),
+          scale: (
+            x: 1.0,
+            y: 1.0,
+            z: 1.0,
+          ),
+        ),
+      },
+    ),
+    1: (
+      components: {
+        "basic_scene::ComponentA": (
+          x: 3.0,
+          y: 4.0,
+        ),
+      },
+    ),
+  },
+)

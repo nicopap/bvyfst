@@ -23,7 +23,13 @@ thiserror = "1"
 
 [dependencies.bevy]
 version = "0.11.0-dev"
+# path = "../../../gitimpo/bevy"
 git = "https://github.com/cart/bevy.git"
 branch = "bevy_asset_v2"
 default-features = false
 features = [ "bevy_asset", "bevy_scene" ] 
+
+[dev-dependencies.bevy]
+default-features = true
+git = "https://github.com/cart/bevy.git"
+branch = "bevy_asset_v2"

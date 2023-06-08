@@ -3,20 +3,27 @@ use std::marker::PhantomData;
 use anyhow::Result as AnyResult;
 use bevy::{
     asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext},
-    prelude::{Scene, World},
+    prelude::{info, AppTypeRegistry, FromWorld, Scene, World},
+    scene::SceneLoader,
     utils::BoxedFuture,
 };
 
-use crate::{
-    entity::{Inline, Tables},
-    hierarchy::Spawn,
-    FastScene,
-};
+use crate::{entity::Inlines, entity::Tables, FastScene};
 
 type Ctx<'a, 'b> = &'a mut LoadContext<'b>;
 
-pub struct Loader<Ts, Is>(PhantomData<fn(Ts, Is)>);
-impl<Ts: Tables + 'static, Is: Inline + 'static> AssetLoader for Loader<Ts, Is> {
+// TODO: parametrize over loaders
+pub struct Loader<Ts, Is>(SceneLoader, AppTypeRegistry, PhantomData<fn(Ts, Is)>);
+
+impl<Ts, Is> FromWorld for Loader<Ts, Is> {
+    fn from_world(world: &mut World) -> Self {
+        let scene_loader = FromWorld::from_world(world);
+        let registry = world.resource::<AppTypeRegistry>();
+        Loader(scene_loader, registry.clone(), PhantomData)
+    }
+}
+
+impl<Ts: Tables + 'static, Is: Inlines + 'static> AssetLoader for Loader<Ts, Is> {
     type Asset = Scene;
     // TODO: use meta file to verify that the layout is valid
     type Settings = ();
@@ -25,22 +32,33 @@ impl<Ts: Tables + 'static, Is: Inline + 'static> AssetLoader for Loader<Ts, Is> 
         &'a self,
         reader: &'a mut Reader,
         _: &'a (),
-        _: Ctx<'a, '_>,
+        ctx: Ctx<'a, '_>,
     ) -> BoxedFuture<'a, AnyResult<Scene>> {
         Box::pin(async move {
-            let mut bytes = Vec::new();
-            reader.read_to_end(&mut bytes).await?;
-            let fast_scene = unsafe { rkyv::archived_root::<FastScene<Ts, Is>>(&bytes) };
-            let mut world = World::new();
-
-            let root_entity = world.spawn_empty();
-            let spawn = Spawn::new(&fast_scene.entities, &fast_scene.tables);
-            spawn.children_of(root_entity);
-
-            Ok(Scene::new(world))
+            // unwrap: this will only be called with the extensions defined in fn extensions
+            match ctx.path().extension().unwrap().to_str().unwrap() {
+                "hollow_bvyfst" => {
+                    let mut bytes = Vec::new();
+                    reader.read_to_end(&mut bytes).await?;
+                    let fast_scene = unsafe { rkyv::archived_root::<FastScene<Ts, Is>>(&bytes) };
+                    Ok(fast_scene.to_bevy())
+                }
+                "myscn" | "ron" => {
+                    info!("got a dynamic scene, reading it");
+                    let dynamic_scene = self.0.load(reader, &(), ctx).await?;
+                    info!("turning dynamic scene into real scene");
+                    let scene = Scene::from_dynamic_scene(&dynamic_scene, &self.1)?;
+                    info!("completed the truing of dynamcis cene to real scen");
+                    Ok(scene)
+                }
+                ext => unreachable!(
+                    "Loader should only be called with extensions: {:?}, got '{ext}'",
+                    self.extensions()
+                ),
+            }
         })
     }
     fn extensions(&self) -> &[&str] {
-        &["hollowbvyfst"]
+        &["hollow_bvyfst", "myscn", "myscn.ron"]
     }
 }

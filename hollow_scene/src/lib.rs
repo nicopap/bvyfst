@@ -13,10 +13,31 @@
 //   convert a list of types into a serializable data structure is in `entity`.
 mod entity;
 mod hierarchy;
+#[cfg(feature = "bevy_plugin")]
 mod plugin;
+pub mod proxy;
 mod scene;
 mod version;
 
+pub use crate::entity::ArchiveProxy;
+#[cfg(feature = "bevy_plugin")]
+pub use plugin::{Plugin, RkyvTypeNonsense};
+pub use rkyv::{Archive, Deserialize, Serialize};
+
 use scene::FastScene;
 
-type Archived<T> = <T as rkyv::Archive>::Archived;
+/// Expose bevy types used in `Plugin!` macro to check they are correct.
+#[doc(hidden)]
+pub mod __priv {
+    pub use bevy::reflect::Reflect;
+}
+
+#[derive(Archive, Deserialize, Serialize, Default)]
+#[doc(hidden)]
+pub struct Inline<C>(C);
+
+#[derive(Archive, Deserialize, Serialize)]
+#[doc(hidden)]
+pub struct Table<C> {
+    table: Vec<C>,
+}

@@ -2,46 +2,21 @@ use std::marker::PhantomData;
 
 use bevy::{
     asset::{io::Writer, saver::AssetSaver, AsyncWriteExt},
-    prelude::AppTypeRegistry,
+    prelude::{info, AppTypeRegistry, FromWorld, World},
     scene::Scene,
     utils::BoxedFuture,
 };
-use rkyv::ser::{
-    serializers::{
-        AlignedSerializer, AllocScratch, AllocSerializer, CompositeSerializer, FallbackScratch,
-        HeapScratch, SharedSerializeMap,
-    },
-    Serializer,
-};
+use rkyv::ser::{serializers::AllocSerializer, Serializer};
 
-use super::loader::Loader;
-use crate::{entity::Inline, entity::Tables, FastScene};
+use super::{loader::Loader, RkyvTypeNonsense};
+use crate::{entity::Inlines, entity::Tables, FastScene};
 
-pub struct Saver<Ts, Is>(PhantomData<fn(Ts, Is)>, AppTypeRegistry);
-impl<Ts: Tables + 'static, Is: Inline + 'static> AssetSaver for Saver<Ts, Is>
+pub struct Saver<Ts, Is>(Option<AppTypeRegistry>, PhantomData<fn(Ts, Is)>);
+impl<Ts: Tables + 'static, Is: Inlines + 'static> AssetSaver for Saver<Ts, Is>
 where
-    // TODO: remove this total rkyv nonsense
-    Ts: rkyv::Serialize<
-        CompositeSerializer<
-            AlignedSerializer<rkyv::AlignedVec>,
-            FallbackScratch<HeapScratch<1024>, AllocScratch>,
-            SharedSerializeMap,
-        >,
-    >,
-    Ts::Keys: rkyv::Serialize<
-        CompositeSerializer<
-            AlignedSerializer<rkyv::AlignedVec>,
-            FallbackScratch<HeapScratch<1024>, AllocScratch>,
-            SharedSerializeMap,
-        >,
-    >,
-    Is: rkyv::Serialize<
-        CompositeSerializer<
-            AlignedSerializer<rkyv::AlignedVec>,
-            FallbackScratch<HeapScratch<1024>, AllocScratch>,
-            SharedSerializeMap,
-        >,
-    >,
+    Ts::Keys: RkyvTypeNonsense,
+    Ts: RkyvTypeNonsense,
+    Is: RkyvTypeNonsense,
 {
     type Asset = Scene;
 
@@ -56,16 +31,34 @@ where
         _: &'a (),
     ) -> BoxedFuture<'a, Result<(), anyhow::Error>> {
         Box::pin(async move {
-            let serializer = {
-                let mut scene_world = asset.clone_with(&self.1)?;
+            info!("Saving a scene as hollow_bvyfst");
+            let bytes = if let Some(registry) = &self.0 {
+                let mut scene_world = asset.clone_with(registry)?;
                 let fast_scene = FastScene::<Ts, Is>::from_bevy(&mut scene_world);
                 let mut serializer = AllocSerializer::<1024>::default();
                 serializer.serialize_value(&fast_scene)?;
-                serializer
+                serializer.into_serializer().into_inner()
+            } else {
+                return Ok(());
             };
-            let bytes = serializer.into_serializer().into_inner();
             writer.write(&bytes).await?;
+            // Ok(ImageLoaderSettings {
+            //     format: ImageFormatSetting::Format(ImageFormat::Basis),
+            //     is_srgb,
+            // })
             Ok(())
         })
+    }
+}
+impl<Ts: Tables + 'static, Is: Inlines + 'static> FromWorld for Saver<Ts, Is> {
+    fn from_world(world: &mut World) -> Self {
+        let registry = world.get_resource::<AppTypeRegistry>();
+        if registry.is_none() {
+            info!(
+                "Your bevy plugin config isn't setup to use asset processing. \
+                Scenes won't be saved in the hllwfstbvy format."
+            );
+        };
+        Saver(registry.map(Clone::clone), PhantomData)
     }
 }
