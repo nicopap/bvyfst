@@ -5,7 +5,7 @@ use bevy::ecs::query::{ROQueryItem, WorldQuery};
 use rkyv::{Archive, Archived, Deserialize, Serialize};
 
 use super::{ArchiveProxy, EntitySpawner};
-use crate::{ArchivedTable, Table};
+use crate::{ArchivedDedupTable, ArchivedTable, DedupTable, Table};
 
 // -------------------------------------
 //               TABLES
@@ -68,6 +68,53 @@ impl Tables for () {
 
     const COMPONENT_COUNT: usize = 0;
 }
+impl<Hk, Tk: Keys, Tt: Tables<Keys = Tk>> Tables for (DedupTable<Hk>, Tt)
+where
+    Hk: ArchiveProxy + PartialEq<Hk::Target>,
+{
+    type Keys = (Key<Hk>, Tk);
+
+    #[inline]
+    fn insert_archived_keys<S: EntitySpawner>(
+        (head, tail): &(ArchivedDedupTable<Hk>, Tt::Archived),
+        (key_head, key_tail): &(ArchivedKey<Hk>, Archived<Tk>),
+        mut cmds: S,
+    ) {
+        head.0.insert_at(key_head, &mut cmds);
+        Tt::insert_archived_keys(tail, key_tail, cmds);
+    }
+    #[inline]
+    fn new() -> Self {
+        (DedupTable(Table { table: Vec::new() }), Tt::new())
+    }
+    #[inline]
+    fn insert_entity_components(
+        &mut self,
+        (head, tail): ComponentsOf<(Key<Hk>, Tk)>,
+    ) -> (Key<Hk>, Tk) {
+        let index = head.map(|head| {
+            let table = &mut self.0 .0;
+            table
+                .table
+                .iter()
+                .position(|elem| elem == head)
+                .unwrap_or_else(|| table.store(head))
+        });
+        let tail = self.1.insert_entity_components(tail);
+        (Key::from_index(index), tail)
+    }
+    fn component_count(&self, index: usize) -> usize {
+        (index == 0)
+            .then_some(self.0 .0.table.len())
+            .unwrap_or_else(|| self.1.component_count(index - 1))
+    }
+    fn component_name(&self, index: usize) -> &'static str {
+        (index == 0)
+            .then_some(std::any::type_name::<Hk::Target>())
+            .unwrap_or_else(|| self.1.component_name(index - 1))
+    }
+    const COMPONENT_COUNT: usize = 1 + Tt::COMPONENT_COUNT;
+}
 impl<Hk: ArchiveProxy, Tk: Keys, Tt: Tables<Keys = Tk>> Tables for (Table<Hk>, Tt) {
     type Keys = (Key<Hk>, Tk);
 
@@ -89,9 +136,9 @@ impl<Hk: ArchiveProxy, Tk: Keys, Tt: Tables<Keys = Tk>> Tables for (Table<Hk>, T
         &mut self,
         (head, tail): ComponentsOf<(Key<Hk>, Tk)>,
     ) -> (Key<Hk>, Tk) {
-        let head = head.map(|c| self.0.store(c));
+        let index = head.map(|c| self.0.store(c));
         let tail = self.1.insert_entity_components(tail);
-        (Key::from_index(head), tail)
+        (Key::from_index(index), tail)
     }
     fn component_count(&self, index: usize) -> usize {
         (index == 0)

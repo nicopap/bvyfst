@@ -8,16 +8,16 @@ fn main() {
         .register_type::<ComponentA>()
         .register_type::<ComponentB>()
         .add_plugin(Plugin!(
-            Inline[proxy::Id<ComponentA>, MyTransform]
+            Inline[proxy::Id<ComponentA>]
+            DedupTable[MyTransform]
             Table[proxy::Id<ComponentB>]
-            Extras[]
         ))
         .add_systems(Startup, (load_scene_system, infotext_system))
         .add_systems(Update, log_system)
         .run();
 }
 
-#[derive(Clone, Copy, Default, Archive, Deserialize, Serialize)]
+#[derive(Clone, Copy, PartialEq, Default, Archive, Deserialize, Serialize)]
 pub struct MyTransform {
     pub translation: [f32; 3],
     pub rotation: [f32; 4],
@@ -39,6 +39,12 @@ impl ArchiveProxy for MyTransform {
             rotation: bevy.rotation.into(),
             scale: bevy.scale.into(),
         }
+    }
+}
+impl PartialEq<Transform> for MyTransform {
+    fn eq(&self, other: &Transform) -> bool {
+        let other = Self::from_target(other);
+        self == &other
     }
 }
 

@@ -1,0 +1,10 @@
+(
+    meta_format_version: "1.0",
+    asset: Process(
+        processor: "bevy_asset::processor::process::LoadAndSave<bvyfst_hollow_scene::plugin::loader::Loader<(bvyfst_hollow_scene::Table<bvyfst_hollow_scene::proxy::Id<basic_scene::ComponentB>>, ()), (bvyfst_hollow_scene::Inline<bvyfst_hollow_scene::proxy::Id<basic_scene::ComponentA>>, (bvyfst_hollow_scene::Inline<basic_scene::MyTransform>, ()))>, bvyfst_hollow_scene::plugin::saver::Saver<(bvyfst_hollow_scene::Table<bvyfst_hollow_scene::proxy::Id<basic_scene::ComponentB>>, ()), (bvyfst_hollow_scene::Inline<bvyfst_hollow_scene::proxy::Id<basic_scene::ComponentA>>, (bvyfst_hollow_scene::Inline<basic_scene::MyTransform>, ()))>>",
+        settings: (
+            loader_settings: (),
+            saver_settings: (),
+        ),
+    ),
+)

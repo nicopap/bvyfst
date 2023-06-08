@@ -41,3 +41,7 @@ pub struct Inline<C>(Option<C>);
 pub struct Table<C> {
     table: Vec<C>,
 }
+
+#[derive(Archive, Deserialize, Serialize)]
+#[doc(hidden)]
+pub struct DedupTable<C>(pub(crate) Table<C>);

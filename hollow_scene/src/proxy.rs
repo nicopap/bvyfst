@@ -23,3 +23,8 @@ where
         Id(target.clone())
     }
 }
+impl<T: PartialEq> PartialEq<T> for Id<T> {
+    fn eq(&self, other: &T) -> bool {
+        &self.0 == other
+    }
+}

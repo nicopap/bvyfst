@@ -114,3 +114,51 @@ I'm not generating an insane amount of code through macros. The compilation cost
 is strictly proportional to how large your type list will be. You are still
 paying a fairly large monomorphization cost, but rustc doesn't seem like it
 minds.
+
+## The `Plugin!` macro docs
+
+
+Initialize the fast scene [`Plugin`].
+
+### Syntax
+
+```rust
+Plugin!(
+   Inline[<ty>,*]
+   DedupTable[<ty>,*]
+   Table[<ty>,*]
+   Extras[]
+);
+```
+
+The order is important, each item is optional, and `Extras` is indeed always
+followed by an empty list (it isn't implemented yet).
+
+`Plugin!` accepts four storage types, and each storage types holds specific
+[`crate::ArchiveProxy`], things that read and write to components.
+
+Consider the file format as an array of entities. Each entity contains
+many proxies. Each proxy corresponds to a single component.
+
+For brievty, we will use `Component` and `proxy` interchangeably in the next
+sections, but beware that — indeed — what is being stored is not the
+component itself, but its proxy defined by `ArchiveProxy`.
+
+With the provided storage formats you have:
+
+- `Inline`: Every entity stores an `Option<Component>` for all components
+  in this section.
+- `Table`: Every entity contains an `Option<NonZeroU16>` for all
+  components in this section. The `NonZeroU16` is an index to a table
+  where the actual component values are stored. The table is stored next
+  to the entity array.
+  \
+  Note that the index being a `NonZeroU16` means there can't be more than
+  65535 instances of the same component in table storage.
+- `DedupTable`: Same as `Table`, except newly added components will be checked
+  against previously found components. If they match, the value won't be added,
+  the index of the existing one is used.
+  \
+  Note that this is a O(n²) operation at save-time, with `n` the number of
+  distinct components (typically this is O(n) for zero-sized types)
+- `Extras`: **NOT IMPLEMENTED**
