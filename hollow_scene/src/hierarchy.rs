@@ -7,22 +7,19 @@ use ::bevy::ecs::query::ROQueryItem;
 use ::bevy::ecs::world::EntityMut;
 use ::bevy::prelude::{BuildWorldChildren, QueryState};
 use bevy::prelude as bevy;
-use rkyv::Archive;
 
 use crate::entity::{KeyStorage, Keys, TableStorage, Tables};
 use crate::{entity::Entity, Archived};
 
-pub struct Spawn<'ett, 'bfr: 'ett + 'tbl, 'tbl, Ts: Archive + 'bfr, Ks: Archive + 'bfr> {
-    scene: &'ett [Archived<Entity<Ks>>],
-    tables: &'tbl Archived<TableStorage<Ts>>,
-    _b: PhantomData<&'bfr ()>,
+pub struct Spawn<'ett, 'b: 'ett + 't, 't, Ts: Tables + 'b> {
+    scene: &'ett [Archived<Entity<Ts::Keys>>],
+    tables: &'t Archived<TableStorage<Ts>>,
+    _b: PhantomData<&'b ()>,
 }
-impl<'ett, 'bfr: 'ett, 'tbl, Ts: Tables<Ks>, Ks: Keys + Archive + 'bfr>
-    Spawn<'ett, 'bfr, 'tbl, Ts, Ks>
-{
+impl<'ett, 'b: 'ett, 't, Ts: Tables> Spawn<'ett, 'b, 't, Ts> {
     pub const fn new(
-        scene: &'ett [Archived<Entity<Ks>>],
-        tables: &'tbl Archived<TableStorage<Ts>>,
+        scene: &'ett [Archived<Entity<Ts::Keys>>],
+        tables: &'t Archived<TableStorage<Ts>>,
     ) -> Self {
         Spawn { scene, _b: PhantomData, tables }
     }
@@ -38,7 +35,7 @@ impl<'ett, 'bfr: 'ett, 'tbl, Ts: Tables<Ks>, Ks: Keys + Archive + 'bfr>
         self.scene = scene;
         Spawn { scene: childr, ..*self }
     }
-    fn next(&mut self) -> Option<&'ett Archived<Entity<Ks>>> {
+    fn next(&mut self) -> Option<&'ett Archived<Entity<Ts::Keys>>> {
         let (entity, scene) = self.scene.split_first()?;
         self.scene = scene;
         Some(entity)
@@ -61,60 +58,57 @@ impl<'ett, 'bfr: 'ett, 'tbl, Ts: Tables<Ks>, Ks: Keys + Archive + 'bfr>
 }
 type BuildQuery<Ks> = (Option<&'static bevy::Children>, <Ks as Keys>::Query);
 
-pub fn build<Ts: Tables<Ks>, Ks: Keys>(
+pub fn build<Ts: Tables>(
     world: &mut bevy::World,
     tables: &mut TableStorage<Ts>,
-) -> Box<[Entity<Ks>]> {
-    let root_query = world.query_filtered::<BuildQuery<Ks>, bevy::Without<bevy::Parent>>();
-    let child_query = world.query::<BuildQuery<Ks>>();
+) -> Box<[Entity<Ts::Keys>]> {
+    let root_query = world.query_filtered::<BuildQuery<Ts::Keys>, bevy::Without<bevy::Parent>>();
+    let child_query = world.query::<BuildQuery<Ts::Keys>>();
 
     let entity_count = child_query.iter_manual(world).len();
     let mut entities: Box<[_]> = iter::repeat_with(Entity::empty)
         .take(entity_count + 1)
         .collect();
 
+    let entity_count = entities.len();
     let (entity, uninit) = entities.split_first_mut().unwrap();
 
     *entity = Entity {
         children: entity_count as u32,
         ref_table_keys: KeyStorage::no_component(),
     };
-
     let root_query = root_query.iter_manual(world);
-    let mut added_count = root_query.len() as u32;
-    added_count += root_query
+
+    entity.children += root_query
         .map(|item| child(item, &child_query, uninit, tables, world))
         .sum::<u32>();
-    assert_eq!(entities.len() as u32, added_count + 1);
+
+    assert_eq!(entity_count as u32, entity.children + 1);
 
     entities
 }
 // TODO(clean) there is too many arguments to this function
-fn child<Ks: Keys, Ts: Tables<Ks>>(
-    (children, components): ROQueryItem<BuildQuery<Ks>>,
-    query: &QueryState<BuildQuery<Ks>>,
-    uninit: &mut [Entity<Ks>],
+fn child<Ts: Tables>(
+    (children, components): ROQueryItem<BuildQuery<Ts::Keys>>,
+    query: &QueryState<BuildQuery<Ts::Keys>>,
+    uninit: &mut [Entity<Ts::Keys>],
     tables: &mut TableStorage<Ts>,
     world: &bevy::World,
 ) -> u32 {
-    // TODO(err) unwrap
+    // TODO(err) unwrap (technically the unwrap should never occur)
     let (entity, uninit) = uninit.split_first_mut().unwrap();
 
     let child_count = children.map_or(0, |c| c.len());
 
-    // TODO(clean) this is so wonk, and repeated in `root` and `child`
     *entity = Entity {
         children: child_count as u32,
         ref_table_keys: tables.insert_values(components),
     };
-    // SAFETY: we literally just initialized this (entity.write)
-    let head = &mut entity.children;
-
-    *head += IterChildren::<Ks>::new(children, query, world)
+    entity.children += IterChildren::<Ts::Keys>::new(children, query, world)
         .map(|item| child(item, query, uninit, tables, world))
         .sum::<u32>();
 
-    *head
+    entity.children
 }
 struct IterChildren<'chld, 'q, 'w, Ks: Keys> {
     entities: &'chld [bevy::Entity],

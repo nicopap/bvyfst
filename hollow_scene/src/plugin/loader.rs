@@ -7,16 +7,12 @@ use bevy::{
     utils::BoxedFuture,
 };
 
-use crate::{
-    entity::{Keys, Tables},
-    hierarchy::Spawn,
-    scene::FastScene,
-};
+use crate::{entity::Tables, hierarchy::Spawn, FastScene};
 
 type Ctx<'a, 'b> = &'a mut LoadContext<'b>;
 
-pub struct Loader<Ks, Ts>(PhantomData<fn(Ks, Ts)>);
-impl<Ks: Keys + 'static, Ts: Tables<Ks> + 'static> AssetLoader for Loader<Ks, Ts> {
+pub struct Loader<Ts>(PhantomData<fn(Ts)>);
+impl<Ts: Tables + 'static> AssetLoader for Loader<Ts> {
     type Asset = Scene;
     // TODO: use meta file to verify that the layout is valid
     type Settings = ();
@@ -30,7 +26,7 @@ impl<Ks: Keys + 'static, Ts: Tables<Ks> + 'static> AssetLoader for Loader<Ks, Ts
         Box::pin(async move {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
-            let fast_scene = unsafe { rkyv::archived_root::<FastScene<Ks, Ts>>(&bytes) };
+            let fast_scene = unsafe { rkyv::archived_root::<FastScene<Ts>>(&bytes) };
             let mut world = World::new();
 
             let root_entity = world.spawn_empty();

@@ -38,15 +38,17 @@ impl EntitySpawner for &'_ mut EntityMut<'_> {
 // -------------------------------------
 
 /// A collection of values referenced by [`Keys`] representing bevy components.
-pub trait Tables<K: Keys>: Archive {
+pub trait Tables: Archive {
+    type Keys: Keys;
+
     /// Deserialize a collection of components to directly insert into the ECS.
     fn insert_archived_keys<S: EntitySpawner>(
         archive: &Self::Archived,
-        keys: &K::Archived,
+        keys: &Archived<Self::Keys>,
         cmds: S,
     );
     fn new() -> Self;
-    fn insert_entity_components(&mut self, components: ComponentsOf<K>) -> K;
+    fn insert_entity_components(&mut self, components: ComponentsOf<Self::Keys>) -> Self::Keys;
 }
 
 #[derive(Archive, Deserialize, Serialize)]
@@ -69,12 +71,15 @@ impl<C: ArchiveProxy> ArchivedTable<C> {
         }
     }
 }
-impl Tables<()> for () {
+impl Tables for () {
+    type Keys = ();
     fn insert_archived_keys<S: EntitySpawner>(_: &(), _: &(), _: S) {}
     fn new() {}
     fn insert_entity_components(&mut self, _: ()) {}
 }
-impl<Hk: ArchiveProxy, Tk: Keys, Tt: Tables<Tk>> Tables<(Key<Hk>, Tk)> for (Table<Hk>, Tt) {
+impl<Hk: ArchiveProxy, Tk: Keys, Tt: Tables<Keys = Tk>> Tables for (Table<Hk>, Tt) {
+    type Keys = (Key<Hk>, Tk);
+
     fn insert_archived_keys<S: EntitySpawner>(
         (head, tail): &(ArchivedTable<Hk>, Tt::Archived),
         (key_head, key_tail): &(ArchivedKey<Hk>, Archived<Tk>),
@@ -101,27 +106,18 @@ pub struct TableStorage<Ts> {
     tables: Ts,
 }
 
-impl<Ts> TableStorage<Ts> {
-    pub(crate) fn new<K: Keys>() -> Self
-    where
-        Ts: Tables<K>,
-    {
+impl<Ts: Tables> TableStorage<Ts> {
+    pub(crate) fn new() -> Self {
         TableStorage { tables: Ts::new() }
     }
 }
-impl<Ts> TableStorage<Ts> {
-    pub fn insert_values<K: Keys>(&mut self, values: ComponentsOf<K>) -> KeyStorage<K>
-    where
-        Ts: Tables<K>,
-    {
+impl<Ts: Tables> TableStorage<Ts> {
+    pub fn insert_values(&mut self, values: ComponentsOf<Ts::Keys>) -> KeyStorage<Ts::Keys> {
         KeyStorage(self.tables.insert_entity_components(values))
     }
 }
-impl<Ts: Archive> ArchivedTableStorage<Ts> {
-    pub fn spawn_keys<K: Keys>(&self, keys: &ArchivedKeyStorage<K>, cmds: impl EntitySpawner)
-    where
-        Ts: Tables<K>,
-    {
+impl<Ts: Tables> ArchivedTableStorage<Ts> {
+    pub fn spawn_keys(&self, keys: &ArchivedKeyStorage<Ts::Keys>, cmds: impl EntitySpawner) {
         Ts::insert_archived_keys(&self.tables, &keys.0, cmds);
     }
 }

@@ -2,16 +2,16 @@ use bevy::prelude as bevy;
 use rkyv::{Archive, Deserialize, Serialize};
 
 use crate::{
-    entity::{Entity, Keys, TableStorage, Tables},
+    entity::{Entity, TableStorage, Tables},
     hierarchy::{self, Spawn},
 };
 
 #[derive(Clone, Archive, Deserialize, Serialize)]
-pub struct FastScene<Ks: Keys, Ts: Tables<Ks>> {
-    pub entities: Box<[Entity<Ks>]>,
+pub struct FastScene<Ts: Tables> {
+    pub entities: Box<[Entity<Ts::Keys>]>,
     pub tables: TableStorage<Ts>,
 }
-impl<Ks: Keys, Ts: Tables<Ks>> ArchivedFastScene<Ks, Ts> {
+impl<Ts: Tables> ArchivedFastScene<Ts> {
     pub fn into_bevy(&self) -> bevy::Scene {
         let mut world = bevy::World::new();
 
@@ -22,7 +22,7 @@ impl<Ks: Keys, Ts: Tables<Ks>> ArchivedFastScene<Ks, Ts> {
         bevy::Scene::new(world)
     }
 }
-impl<Ks: Keys, Ts: Tables<Ks>> FastScene<Ks, Ts> {
+impl<Ts: Tables> FastScene<Ts> {
     pub fn from_bevy(scene: &mut bevy::Scene) -> Self {
         let mut tables = TableStorage::new();
         let entities = hierarchy::build(&mut scene.world, &mut tables);

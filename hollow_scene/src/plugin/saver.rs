@@ -14,20 +14,21 @@ use rkyv::ser::{
     Serializer,
 };
 
-use crate::{entity::Keys, entity::Tables, loader::Loader, scene::FastScene};
+use super::loader::Loader;
+use crate::{entity::Tables, FastScene};
 
-pub struct Saver<Ks, Ts>(PhantomData<fn(Ks, Ts)>, AppTypeRegistry);
-impl<Ks: Keys + 'static, Ts: Tables<Ks> + 'static> AssetSaver for Saver<Ks, Ts>
+pub struct Saver<Ts>(PhantomData<fn(Ts)>, AppTypeRegistry);
+impl<Ts: Tables + 'static> AssetSaver for Saver<Ts>
 where
     // TODO: remove this total rkyv nonsense
-    Ks: rkyv::Serialize<
+    Ts: rkyv::Serialize<
         CompositeSerializer<
             AlignedSerializer<rkyv::AlignedVec>,
             FallbackScratch<HeapScratch<1024>, AllocScratch>,
             SharedSerializeMap,
         >,
     >,
-    Ts: rkyv::Serialize<
+    Ts::Keys: rkyv::Serialize<
         CompositeSerializer<
             AlignedSerializer<rkyv::AlignedVec>,
             FallbackScratch<HeapScratch<1024>, AllocScratch>,
@@ -39,7 +40,7 @@ where
 
     type Settings = ();
 
-    type OutputLoader = Loader<Ks, Ts>;
+    type OutputLoader = Loader<Ts>;
 
     fn save<'a>(
         &'a self,
@@ -50,7 +51,7 @@ where
         Box::pin(async move {
             let serializer = {
                 let mut scene_world = asset.clone_with(&self.1)?;
-                let fast_scene = FastScene::<Ks, Ts>::from_bevy(&mut scene_world);
+                let fast_scene = FastScene::<Ts>::from_bevy(&mut scene_world);
                 let mut serializer = AllocSerializer::<1024>::default();
                 serializer.serialize_value(&fast_scene)?;
                 serializer
