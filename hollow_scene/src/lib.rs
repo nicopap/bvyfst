@@ -34,7 +34,7 @@ pub mod __priv {
 
 #[derive(Archive, Deserialize, Serialize, Default)]
 #[doc(hidden)]
-pub struct Inline<C>(C);
+pub struct Inline<C>(Option<C>);
 
 #[derive(Archive, Deserialize, Serialize)]
 #[doc(hidden)]

@@ -26,10 +26,10 @@ pub struct Entity<Keys, Inlines> {
     pub ref_table_keys: KeyStorage<Keys>,
 }
 impl<Ks: Keys, Is: Inlines> Entity<Ks, Is> {
-    pub fn empty() -> Self {
+    pub fn with_children(children: u32) -> Self {
         Entity {
-            children: 0,
-            inline_items: InlineStorage::default(),
+            children,
+            inline_items: InlineStorage::new(),
             ref_table_keys: KeyStorage::no_component(),
         }
     }

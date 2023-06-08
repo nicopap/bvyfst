@@ -19,7 +19,7 @@ use crate::entity::{Inlines, Tables};
 ///
 /// # Syntax
 ///
-/// ```
+/// ```text
 /// Plugin!(
 ///    Inline[<ty>,*]
 ///    Table[<ty>,*]

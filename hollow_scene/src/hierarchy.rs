@@ -1,6 +1,5 @@
 //! Write/Read a bevy hierarchy into a slice
 
-use std::iter;
 use std::marker::PhantomData;
 
 use ::bevy::ecs::query::{ROQueryItem, WorldQuery};
@@ -9,7 +8,7 @@ use ::bevy::prelude::{BuildWorldChildren, QueryState};
 use bevy::prelude as bevy;
 use rkyv::Archived;
 
-use crate::entity::{Entity, InlineStorage, Inlines, KeyStorage, Keys, TableStorage, Tables};
+use crate::entity::{Entity, InlineStorage, Inlines, Keys, TableStorage, Tables};
 
 pub struct Spawn<'ett, 'b: 'ett + 't, 't, Ts: Tables + 'b, Is: Inlines + 'b> {
     scene: &'ett [Archived<Entity<Ts::Keys, Is>>],
@@ -48,6 +47,7 @@ impl<'ett, 'b: 'ett, 't, Ts: Tables, Is: Inlines> Spawn<'ett, 'b, 't, Ts, Is> {
 
             self.tables
                 .spawn_keys(&entity.ref_table_keys, &mut bevy_entity);
+            entity.inline_items.spawn(&mut bevy_entity);
 
             let descendant_count = entity.children;
 
@@ -66,56 +66,46 @@ pub fn build<Ts: Tables, Is: Inlines>(
     world: &mut bevy::World,
     tables: &mut TableStorage<Ts>,
 ) -> Box<[Entity<Ts::Keys, Is>]> {
-    let root_query =
+    let mut root_query =
         world.query_filtered::<BuildQuery<Ts::Keys, Is>, bevy::Without<bevy::Parent>>();
-    let child_query = world.query::<BuildQuery<Ts::Keys, Is>>();
+    root_query.update_archetypes(world);
+    let mut child_query = world.query::<BuildQuery<Ts::Keys, Is>>();
+    child_query.update_archetypes(world);
 
     let entity_count = child_query.iter_manual(world).len();
-    let mut entities: Box<[_]> = iter::repeat_with(Entity::empty)
-        .take(entity_count + 1)
-        .collect();
+    let mut entities: Vec<_> = Vec::with_capacity(entity_count + 1);
+    entities.push(Entity::with_children(entity_count as u32));
 
-    let entity_count = entities.len();
-    let (entity, uninit) = entities.split_first_mut().unwrap();
-
-    *entity = Entity {
-        children: entity_count as u32,
-        inline_items: InlineStorage::default(),
-        ref_table_keys: KeyStorage::no_component(),
-    };
-    let root_query = root_query.iter_manual(world);
-
-    entity.children += root_query
-        .map(|item| child(item, &child_query, uninit, tables, world))
+    let grand_children = root_query
+        .iter_manual(world)
+        .map(|item| child(item, &child_query, &mut entities, tables, world))
         .sum::<u32>();
 
-    assert_eq!(entity_count as u32, entity.children + 1);
-
-    entities
+    entities[0].children += grand_children;
+    entities.into_boxed_slice()
 }
 // TODO(clean) there is too many arguments to this function
 fn child<Ts: Tables, Is: Inlines>(
     (children, table_query, inline_query): ROQueryItem<BuildQuery<Ts::Keys, Is>>,
     query: &QueryState<BuildQuery<Ts::Keys, Is>>,
-    uninit: &mut [Entity<Ts::Keys, Is>],
+    uninit: &mut Vec<Entity<Ts::Keys, Is>>,
     tables: &mut TableStorage<Ts>,
     world: &bevy::World,
 ) -> u32 {
-    // TODO(err) unwrap (technically the unwrap should never occur)
-    let (entity, uninit) = uninit.split_first_mut().unwrap();
-
     let child_count = children.map_or(0, |c| c.len());
 
-    *entity = Entity {
+    let inserted_index = uninit.len();
+    uninit.push(Entity {
         children: child_count as u32,
         inline_items: InlineStorage::query(inline_query),
         ref_table_keys: tables.insert_values(table_query),
-    };
-    entity.children += IterChildren::new(children, query, world)
+    });
+    let grand_children = IterChildren::new(children, query, world)
         .map(|item| child(item, query, uninit, tables, world))
         .sum::<u32>();
 
-    entity.children
+    uninit[inserted_index].children += grand_children;
+    uninit[inserted_index].children
 }
 struct IterChildren<'chld, 'q, 'w, Q: WorldQuery> {
     entities: &'chld [bevy::Entity],

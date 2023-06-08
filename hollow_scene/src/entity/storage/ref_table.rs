@@ -1,3 +1,4 @@
+use core::fmt;
 use std::{marker::PhantomData, num::NonZeroU16};
 
 use bevy::ecs::query::{ROQueryItem, WorldQuery};
@@ -28,6 +29,10 @@ pub trait Tables: Archive {
     );
     fn new() -> Self;
     fn insert_entity_components(&mut self, components: ComponentsOf<Self::Keys>) -> Self::Keys;
+
+    const COMPONENT_COUNT: usize;
+    fn component_count(&self, index: usize) -> usize;
+    fn component_name(&self, index: usize) -> &'static str;
 }
 
 impl<C: ArchiveProxy> Table<C> {
@@ -51,6 +56,14 @@ impl Tables for () {
     fn insert_archived_keys<S: EntitySpawner>(&(): &(), &(): &(), _: S) {}
     fn new() {}
     fn insert_entity_components(&mut self, (): ()) {}
+    fn component_count(&self, _: usize) -> usize {
+        panic!("Out of bound, terminal node isn't a component table")
+    }
+    fn component_name(&self, _: usize) -> &'static str {
+        panic!("Out of bound, terminal node isn't a component table")
+    }
+
+    const COMPONENT_COUNT: usize = 0;
 }
 impl<Hk: ArchiveProxy, Tk: Keys, Tt: Tables<Keys = Tk>> Tables for (Table<Hk>, Tt) {
     type Keys = (Key<Hk>, Tk);
@@ -74,6 +87,17 @@ impl<Hk: ArchiveProxy, Tk: Keys, Tt: Tables<Keys = Tk>> Tables for (Table<Hk>, T
         let tail = self.1.insert_entity_components(tail);
         (Key::from_index(head), tail)
     }
+    fn component_count(&self, index: usize) -> usize {
+        (index == 0)
+            .then_some(self.0.table.len())
+            .unwrap_or_else(|| self.1.component_count(index - 1))
+    }
+    fn component_name(&self, index: usize) -> &'static str {
+        (index == 0)
+            .then_some(std::any::type_name::<Hk::Target>())
+            .unwrap_or_else(|| self.1.component_name(index - 1))
+    }
+    const COMPONENT_COUNT: usize = 1 + Tt::COMPONENT_COUNT;
 }
 
 #[derive(Clone, Archive, Deserialize, Serialize)]
@@ -85,8 +109,15 @@ impl<Ts: Tables> TableStorage<Ts> {
     pub(crate) fn new() -> Self {
         TableStorage { tables: Ts::new() }
     }
-}
-impl<Ts: Tables> TableStorage<Ts> {
+    pub const fn component_count(&self) -> usize {
+        Ts::COMPONENT_COUNT
+    }
+    pub fn component_count_of(&self, index: usize) -> usize {
+        self.tables.component_count(index)
+    }
+    pub fn component_name(&self, index: usize) -> &'static str {
+        self.tables.component_name(index)
+    }
     pub fn insert_values(&mut self, values: ComponentsOf<Ts::Keys>) -> KeyStorage<Ts::Keys> {
         KeyStorage(self.tables.insert_entity_components(values))
     }
@@ -107,12 +138,22 @@ pub type ComponentsOf<'w, K> = ROQueryItem<'w, <K as Keys>::Query>;
 pub trait Keys: Archive {
     type Query: WorldQuery;
     fn empty() -> Self;
+    fn occupancy(&self) -> String;
 }
 
 #[derive(Clone, Copy, Archive, Deserialize, Serialize)]
 pub struct Key<C: ArchiveProxy> {
     index: Option<NonZeroU16>,
     _value_ty: PhantomData<fn(C)>,
+}
+impl<C: ArchiveProxy> fmt::Debug for Key<C> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(index) = self.index {
+            write!(f, "K#{}", index.get())
+        } else {
+            write!(f, "K__")
+        }
+    }
 }
 impl<C: ArchiveProxy> Key<C> {
     fn from_index(index: Option<usize>) -> Self {
@@ -125,12 +166,19 @@ impl<C: ArchiveProxy> Key<C> {
 
 impl Keys for () {
     type Query = ();
-    fn empty() -> Self {}
+    fn empty() {}
+    fn occupancy(&self) -> String {
+        String::new()
+    }
 }
 impl<C: ArchiveProxy, Tl: Keys> Keys for (Key<C>, Tl) {
     type Query = (Option<&'static C::Target>, Tl::Query);
+
     fn empty() -> Self {
         (Key { index: None, _value_ty: PhantomData }, Tl::empty())
+    }
+    fn occupancy(&self) -> String {
+        format!("{:?}{}", &self.0, self.1.occupancy())
     }
 }
 
@@ -146,5 +194,8 @@ impl<Ks: Keys> Default for KeyStorage<Ks> {
 impl<Ks: Keys> KeyStorage<Ks> {
     pub fn no_component() -> Self {
         KeyStorage(Ks::empty())
+    }
+    pub fn occupancy(&self) -> String {
+        self.0.occupancy()
     }
 }
