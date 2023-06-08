@@ -105,7 +105,6 @@ pub type ComponentsOf<'w, K> = ROQueryItem<'w, <K as Keys>::Query>;
 
 /// A collection of keys in [`Tables`] to read components as external storage.
 pub trait Keys: Archive {
-    type Components;
     type Query: WorldQuery;
     fn empty() -> Self;
 }
@@ -125,12 +124,10 @@ impl<C: ArchiveProxy> Key<C> {
 }
 
 impl Keys for () {
-    type Components = ();
     type Query = ();
     fn empty() -> Self {}
 }
 impl<C: ArchiveProxy, Tl: Keys> Keys for (Key<C>, Tl) {
-    type Components = (Option<C>, Tl::Components);
     type Query = (Option<&'static C::Target>, Tl::Query);
     fn empty() -> Self {
         (Key { index: None, _value_ty: PhantomData }, Tl::empty())

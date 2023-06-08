@@ -12,7 +12,6 @@ pub type ComponentsOf<'w, I> = ROQueryItem<'w, <I as Inlines>::Query>;
 /// use this if most archived entities in the scene contains this component,
 /// and the component in question doesn't occupy a lot of memory.
 pub trait Inlines: Archive + Default {
-    type Items;
     type Query: WorldQuery;
     fn from_query_items(query: ComponentsOf<Self>) -> Self;
     fn insert_entity_components<S: EntitySpawner>(archive: &Self::Archived, cmds: &mut S);
@@ -28,14 +27,13 @@ impl<I: Inlines> InlineStorage<I> {
 }
 
 impl Inlines for () {
-    type Items = ();
     type Query = ();
     fn from_query_items((): ()) {}
     fn insert_entity_components<S: EntitySpawner>((): &(), _: &mut S) {}
 }
 impl<H: ArchiveProxy + Default, T: Inlines> Inlines for (Inline<H>, T) {
-    type Items = (Option<H>, T::Items);
     type Query = (Option<&'static H::Target>, T::Query);
+
     fn from_query_items((head, tail): ComponentsOf<Self>) -> Self {
         let head = Inline(head.map_or_else(H::default, H::from_target));
         (head, T::from_query_items(tail))
