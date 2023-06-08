@@ -43,8 +43,11 @@ impl<I: Inlines> InlineStorage<I> {
 
 impl Inlines for () {
     type Query = ();
+    #[inline]
     fn from_query_items((): ()) {}
+    #[inline]
     fn insert_entity_components<S: EntitySpawner>((): &(), _: &mut S) {}
+    #[inline]
     fn new() {}
     fn occupancy(&self) -> String {
         String::new()
@@ -53,16 +56,19 @@ impl Inlines for () {
 impl<H: ArchiveProxy, T: Inlines> Inlines for (Inline<H>, T) {
     type Query = (Option<&'static H::Target>, T::Query);
 
+    #[inline]
     fn from_query_items((head, tail): (Option<&H::Target>, ComponentsOf<T>)) -> Self {
         let head = Inline(head.map(H::from_target));
         (head, T::from_query_items(tail))
     }
+    #[inline]
     fn insert_entity_components<S: EntitySpawner>((head, tail): &Self::Archived, cmds: &mut S) {
         if let Some(value) = head.0.as_ref() {
             cmds.insert(H::to_target(value));
         }
         T::insert_entity_components(tail, cmds);
     }
+    #[inline]
     fn new() -> Self {
         (Inline(None), T::new())
     }

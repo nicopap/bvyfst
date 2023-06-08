@@ -53,8 +53,11 @@ impl<C: ArchiveProxy> ArchivedTable<C> {
 }
 impl Tables for () {
     type Keys = ();
+    #[inline]
     fn insert_archived_keys<S: EntitySpawner>(&(): &(), &(): &(), _: S) {}
+    #[inline]
     fn new() {}
+    #[inline]
     fn insert_entity_components(&mut self, (): ()) {}
     fn component_count(&self, _: usize) -> usize {
         panic!("Out of bound, terminal node isn't a component table")
@@ -68,6 +71,7 @@ impl Tables for () {
 impl<Hk: ArchiveProxy, Tk: Keys, Tt: Tables<Keys = Tk>> Tables for (Table<Hk>, Tt) {
     type Keys = (Key<Hk>, Tk);
 
+    #[inline]
     fn insert_archived_keys<S: EntitySpawner>(
         (head, tail): &(ArchivedTable<Hk>, Tt::Archived),
         (key_head, key_tail): &(ArchivedKey<Hk>, Archived<Tk>),
@@ -76,9 +80,11 @@ impl<Hk: ArchiveProxy, Tk: Keys, Tt: Tables<Keys = Tk>> Tables for (Table<Hk>, T
         head.insert_at(key_head, &mut cmds);
         Tt::insert_archived_keys(tail, key_tail, cmds);
     }
+    #[inline]
     fn new() -> Self {
         (Table { table: Vec::new() }, Tt::new())
     }
+    #[inline]
     fn insert_entity_components(
         &mut self,
         (head, tail): ComponentsOf<(Key<Hk>, Tk)>,
@@ -106,8 +112,13 @@ pub struct TableStorage<Ts> {
 }
 
 impl<Ts: Tables> TableStorage<Ts> {
+    #[inline]
     pub(crate) fn new() -> Self {
         TableStorage { tables: Ts::new() }
+    }
+    #[inline]
+    pub fn insert_values(&mut self, values: ComponentsOf<Ts::Keys>) -> KeyStorage<Ts::Keys> {
+        KeyStorage(self.tables.insert_entity_components(values))
     }
     pub const fn component_count(&self) -> usize {
         Ts::COMPONENT_COUNT
@@ -118,11 +129,9 @@ impl<Ts: Tables> TableStorage<Ts> {
     pub fn component_name(&self, index: usize) -> &'static str {
         self.tables.component_name(index)
     }
-    pub fn insert_values(&mut self, values: ComponentsOf<Ts::Keys>) -> KeyStorage<Ts::Keys> {
-        KeyStorage(self.tables.insert_entity_components(values))
-    }
 }
 impl<Ts: Tables> ArchivedTableStorage<Ts> {
+    #[inline]
     pub fn spawn_keys(&self, keys: &ArchivedKeyStorage<Ts::Keys>, cmds: impl EntitySpawner) {
         Ts::insert_archived_keys(&self.tables, &keys.0, cmds);
     }
@@ -174,6 +183,7 @@ impl Keys for () {
 impl<C: ArchiveProxy, Tl: Keys> Keys for (Key<C>, Tl) {
     type Query = (Option<&'static C::Target>, Tl::Query);
 
+    #[inline]
     fn empty() -> Self {
         (Key { index: None, _value_ty: PhantomData }, Tl::empty())
     }
@@ -186,6 +196,7 @@ impl<C: ArchiveProxy, Tl: Keys> Keys for (Key<C>, Tl) {
 pub struct KeyStorage<Ks>(Ks);
 
 impl<Ks: Keys> Default for KeyStorage<Ks> {
+    #[inline]
     fn default() -> Self {
         KeyStorage::no_component()
     }
