@@ -8,6 +8,7 @@ use bevy::{
     utils::BoxedFuture,
 };
 
+use super::processor::Format;
 use crate::{entity::Inlines, entity::Tables, FastScene};
 
 type Ctx<'a, 'b> = &'a mut LoadContext<'b>;
@@ -25,25 +26,26 @@ impl<Ts, Is> FromWorld for Loader<Ts, Is> {
 
 impl<Ts: Tables + 'static, Is: Inlines + 'static> AssetLoader for Loader<Ts, Is> {
     type Asset = Scene;
-    // TODO: use meta file to verify that the layout is valid
-    type Settings = ();
+    type Settings = Format;
 
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
-        _: &'a (),
+        format: &'a Format,
         ctx: Ctx<'a, '_>,
     ) -> BoxedFuture<'a, AnyResult<Scene>> {
+        use Format::{Fast, FromFileExtension};
+
         Box::pin(async move {
             // unwrap: this will only be called with the extensions defined in fn extensions
-            match ctx.path().extension().unwrap().to_str().unwrap() {
-                "hollow_bvyfst" => {
+            match (format, ctx.path().extension().unwrap().to_str().unwrap()) {
+                (Fast, _) | (FromFileExtension, "hollow_bvyfst") => {
                     let mut bytes = Vec::new();
                     reader.read_to_end(&mut bytes).await?;
                     let fast_scene = unsafe { rkyv::archived_root::<FastScene<Ts, Is>>(&bytes) };
                     Ok(fast_scene.to_bevy())
                 }
-                "myscn" | "ron" => {
+                (FromFileExtension, "myscn" | "ron") => {
                     info!("got a dynamic scene, reading it");
                     let dynamic_scene = self.0.load(reader, &(), ctx).await?;
                     info!("turning dynamic scene into real scene");
@@ -51,7 +53,7 @@ impl<Ts: Tables + 'static, Is: Inlines + 'static> AssetLoader for Loader<Ts, Is>
                     info!("completed the truing of dynamcis cene to real scen");
                     Ok(scene)
                 }
-                ext => unreachable!(
+                (FromFileExtension, ext) => unreachable!(
                     "Loader should only be called with extensions: {:?}, got '{ext}'",
                     self.extensions()
                 ),

@@ -2,11 +2,19 @@ use bevy::{
     asset::processor::{AssetProcessor, LoadAndSave},
     prelude::{info, FromWorld, World},
 };
+use serde::{Deserialize, Serialize};
 
 use super::{loader::Loader, saver::Saver, RkyvTypeNonsense};
 use crate::{entity::Inlines, entity::Tables};
 
 type Processor<T, I> = LoadAndSave<Loader<T, I>, Saver<T, I>>;
+
+#[derive(Deserialize, Serialize, Debug, Default, Clone, Copy)]
+pub enum Format {
+    #[default]
+    FromFileExtension,
+    Fast,
+}
 
 pub(super) fn insert<Ts: Tables + 'static, Is: Inlines + 'static>(world: &mut World)
 where

@@ -19,6 +19,7 @@ bevy_plugin = []
 anyhow = "1"
 bitflags = "2.3"
 rkyv = "0.7.42"
+serde = "1"
 thiserror = "1"
 
 [dependencies.bevy]

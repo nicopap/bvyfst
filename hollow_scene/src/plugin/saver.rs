@@ -8,7 +8,7 @@ use bevy::{
 };
 use rkyv::ser::{serializers::AllocSerializer, Serializer};
 
-use super::{loader::Loader, RkyvTypeNonsense};
+use super::{loader::Loader, processor::Format, RkyvTypeNonsense};
 use crate::{entity::Inlines, entity::Tables, FastScene};
 
 pub struct Saver<Ts, Is>(Option<AppTypeRegistry>, PhantomData<fn(Ts, Is)>);
@@ -20,7 +20,7 @@ where
 {
     type Asset = Scene;
 
-    type Settings = ();
+    type Settings = Format;
 
     type OutputLoader = Loader<Ts, Is>;
 
@@ -28,8 +28,8 @@ where
         &'a self,
         writer: &'a mut Writer,
         asset: &'a Scene,
-        _: &'a (),
-    ) -> BoxedFuture<'a, Result<(), anyhow::Error>> {
+        _: &'a Format,
+    ) -> BoxedFuture<'a, Result<Format, anyhow::Error>> {
         Box::pin(async move {
             info!("Saving a scene as hollow_bvyfst");
             let bytes = if let Some(registry) = &self.0 {
@@ -39,14 +39,12 @@ where
                 serializer.serialize_value(&fast_scene)?;
                 serializer.into_serializer().into_inner()
             } else {
-                return Ok(());
+                return Err(anyhow::anyhow!(
+                    "The appregistry doesn't exist, can't save scenes"
+                ));
             };
             writer.write(&bytes).await?;
-            // Ok(ImageLoaderSettings {
-            //     format: ImageFormatSetting::Format(ImageFormat::Basis),
-            //     is_srgb,
-            // })
-            Ok(())
+            Ok(Format::Fast)
         })
     }
 }
